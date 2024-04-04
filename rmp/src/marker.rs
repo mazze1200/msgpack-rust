@@ -142,6 +142,48 @@ impl Marker {
             Marker::Reserved      => 0xc1,
         }
     }
+
+    pub fn len(&self) -> usize {
+        match &self {
+            Marker::FixPos(_) => 1usize,
+            Marker::FixNeg(_) => 1usize,
+            Marker::Null => 1usize,
+            Marker::True => 1usize,
+            Marker::False => 1usize,
+            Marker::U8 => 2usize,
+            Marker::U16 => 3usize,
+            Marker::U32 => 5usize,
+            Marker::U64 => 9usize,
+            Marker::I8 => 2usize,
+            Marker::I16 => 3usize,
+            Marker::I32 => 5usize,
+            Marker::I64 => 9usize,
+            Marker::F32 => 5usize,
+            Marker::F64 => 9usize,
+            Marker::FixStr(_) => 1usize,
+            Marker::Str8 => 2usize,
+            Marker::Str16 => 3usize,
+            Marker::Str32 => 5usize,
+            Marker::Bin8 => 2usize,
+            Marker::Bin16 => 3usize,
+            Marker::Bin32 => 5usize,
+            Marker::FixArray(_) => 1usize,
+            Marker::Array16 => 3usize,
+            Marker::Array32 => 5usize,
+            Marker::FixMap(_) => 1usize,
+            Marker::Map16 => 3usize,
+            Marker::Map32 => 5usize,
+            Marker::FixExt1 => 1usize,
+            Marker::FixExt2 => 1usize,
+            Marker::FixExt4 => 1usize,
+            Marker::FixExt8 => 1usize,
+            Marker::FixExt16 => 1usize,
+            Marker::Ext8 => 2usize,
+            Marker::Ext16 => 3usize,
+            Marker::Ext32 => 5usize,
+            Marker::Reserved => 1usize,
+        }
+    }
 }
 
 impl From<u8> for Marker {

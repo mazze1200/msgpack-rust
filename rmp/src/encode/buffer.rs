@@ -3,6 +3,7 @@
 use super::RmpWrite;
 #[cfg(not(feature = "std"))]
 use core::fmt::{self, Display, Formatter};
+#[cfg(feature = "std")]
 use alloc::vec::Vec;
 
 /// An error returned from writing to `&mut [u8]` (a byte buffer of fixed capacity) on no_std
@@ -68,6 +69,7 @@ impl<'a> RmpWrite for &'a mut [u8] {
     }
 }
 
+#[cfg(feature = "std")]
 /// A wrapper around `Vec<u8>` to serialize more efficiently.
 ///
 /// This has a specialized implementation of `RmpWrite`
@@ -81,6 +83,7 @@ impl<'a> RmpWrite for &'a mut [u8] {
 pub struct ByteBuf {
     bytes: Vec<u8>,
 }
+#[cfg(feature = "std")]
 impl ByteBuf {
     /// Construct a new empty buffer
     #[inline]
@@ -120,36 +123,41 @@ impl ByteBuf {
         &self.bytes
     }
 }
+#[cfg(feature = "std")]
 impl AsRef<[u8]> for ByteBuf {
     fn as_ref(&self) -> &[u8] {
         &self.bytes
     }
 }
+#[cfg(feature = "std")]
 impl AsRef<Vec<u8>> for ByteBuf {
     #[inline]
     fn as_ref(&self) -> &Vec<u8> {
         &self.bytes
     }
 }
+#[cfg(feature = "std")]
 impl AsMut<Vec<u8>> for ByteBuf {
     #[inline]
     fn as_mut(&mut self) -> &mut Vec<u8> {
         &mut self.bytes
     }
 }
+#[cfg(feature = "std")]
 impl From<ByteBuf> for Vec<u8> {
     #[inline]
     fn from(buf: ByteBuf) -> Self {
         buf.bytes
     }
 }
+#[cfg(feature = "std")]
 impl From<Vec<u8>> for ByteBuf {
     #[inline]
     fn from(bytes: Vec<u8>) -> Self {
         ByteBuf { bytes }
     }
 }
-
+#[cfg(feature = "std")]
 impl RmpWrite for ByteBuf {
     type Error = core::convert::Infallible;
 
@@ -165,7 +173,9 @@ impl RmpWrite for ByteBuf {
         Ok(())
     }
 }
-#[cfg(not(feature = "std"))]
+
+
+#[cfg(feature = "std")]
 impl<'a> RmpWrite for Vec<u8> {
     type Error = core::convert::Infallible;
 

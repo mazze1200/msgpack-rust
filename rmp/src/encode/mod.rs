@@ -22,6 +22,7 @@ use core::fmt::{self, Display, Debug, Formatter};
 use crate::Marker;
 
 pub mod buffer;
+#[cfg(feature = "std")]
 pub use buffer::ByteBuf;
 
 #[doc(inline)]
@@ -110,8 +111,9 @@ mod sealed{
     impl<T: ?Sized + std::io::Write> Sealed for T {}
     #[cfg(not(feature = "std"))]
     impl Sealed for &mut [u8] {}
-    #[cfg(not(feature = "std"))]
+    #[cfg(feature = "std")]
     impl Sealed for alloc::vec::Vec<u8> {}
+    #[cfg(feature = "std")]
     impl Sealed for super::ByteBuf {}
 }
 
