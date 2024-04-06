@@ -1,11 +1,8 @@
 //! Implementation of the [ByteBuf] type
 
-use super::{RmpWrite, RmpWriteErr};
-use core::fmt::Error;
+use super::RmpWrite;
 #[cfg(not(feature = "std"))]
 use core::fmt::{self, Display, Formatter};
-#[cfg(feature = "std")]
-use alloc::vec::Vec;
 
 /// An error returned from writing to `&mut [u8]` (a byte buffer of fixed capacity) on no_std
 ///

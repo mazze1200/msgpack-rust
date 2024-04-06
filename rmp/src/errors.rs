@@ -2,6 +2,7 @@
 //!
 //! This is used mainly for backwards compatibility and abstraction over std/no_std.
 
+#[cfg(not(feature = "std"))]
 use core::fmt::Display;
 
 /// An alias to the "default" error handling type.
@@ -14,7 +15,7 @@ use core::fmt::Display;
 ///
 /// For these two reasons, this type is deprecated
 #[cfg(feature = "std")]
-#[deprecated(note = "Doesn't abstract over RmpRead/RmpWrite (or work on no_std), use RmpRead::Error/RmpWrite::Error and RmpReadErr/RmpWriteErr instead")]
+// #[deprecated(note = "Doesn't abstract over RmpRead/RmpWrite (or work on no_std), use RmpRead::Error/RmpWrite::Error and RmpReadErr/RmpWriteErr instead")]
 pub type Error = ::std::io::Error;
 
 #[cfg(not(feature = "std"))]
