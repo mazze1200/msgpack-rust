@@ -73,6 +73,24 @@ impl<'a> Bytes<'a> {
     pub fn position(&self) -> u64 {
         self.current_position
     }
+
+    /// Return the slice with the length len from the internal buffer
+    /// stating at the current offset.
+    #[allow(unused)]
+    fn read_exact_ref(&mut self, len: usize) -> Result<&'a [u8], BytesReadError> {
+        if len <= self.bytes.len() {
+            let (src, newly_remaining) = self.bytes.split_at(len);
+            self.bytes = newly_remaining;
+            self.current_position += len as u64;
+            Ok(src)
+        } else {
+            Err(BytesReadError::InsufficientBytes {
+                expected: len,
+                actual: self.bytes.len(),
+                position: self.current_position
+            })
+        }
+    }
 }
 impl<'a> From<&'a [u8]> for Bytes<'a> {
     #[inline]
