@@ -1,5 +1,5 @@
 
-use crate::{decode::{self, bytes::BytesReadError, read_marker, read_str_from_slice, Bytes, MarkerReadError, RmpRead, RmpReadErr, ValueReadError}, errors::Error, Marker};
+use crate::{decode::{self, bytes::BytesReadError, read_marker, Bytes, MarkerReadError, RmpRead, ValueReadError}, Marker};
 
 pub enum ReadResult<'a>{
     FixPos(Marker,u8),
@@ -27,14 +27,14 @@ pub enum ReadResult<'a>{
     FixArray(Marker,&'a [u8] ),
     Array16 (Marker, &'a [u8] ),
     Array32 (Marker, &'a [u8] ),
-    FixMap(Marker,u8 ),
+    FixMap(Marker, &'a [u8] ),
     Map16 (Marker,&'a [u8]  ),
     Map32 (Marker,&'a [u8]  ),
-    FixExt1 (Marker, i8, &'a [u8;1] ),
-    FixExt2 (Marker,  i8, &'a [u8;2]),
-    FixExt4 (Marker,  i8, &'a [u8;4]),
-    FixExt8 (Marker,  i8, &'a [u8;8]),
-    FixExt16 (Marker, i8, &'a [u8;16] ),
+    FixExt1 (Marker, i8, &'a [u8] ),
+    FixExt2 (Marker,  i8, &'a [u8]),
+    FixExt4 (Marker,  i8, &'a [u8]),
+    FixExt8 (Marker,  i8, &'a [u8]),
+    FixExt16 (Marker, i8, &'a [u8] ),
     Ext8 (Marker, i8, &'a [u8]),
     Ext16 (Marker,i8, &'a [u8] ),
     Ext32 (Marker,i8, &'a [u8] ),
@@ -51,13 +51,9 @@ impl<'a> Reader<'a>{
         }
     }
 
-    // pub fn test(){
-    //     let buf = [65u8; 5];
-    //     // let my_str = alloc::str::from_utf8(buf);
-    //     let my_str = core::str::from_utf8(&buf);
-
-    // }
-
+    /// This function is a zero copy implementation to retrieve the values out of the slice.
+    /// It is zero copy but it still has to know/measure the size of of each object, which in turn means 
+    /// Array32 or Map32 can be expensive since it has to iterate over all the objects in the array/map. 
     pub fn read<R>(&mut self) -> Result<ReadResult<'a>, ValueReadError<R>>
     where R: RmpRead + decode::RmpReadErr,
      ValueReadError<R>: From<MarkerReadError<BytesReadError>>,
@@ -151,21 +147,91 @@ impl<'a> Reader<'a>{
                     Ok(ReadResult::Array32(marker,&self.bytes.remaining_slice()[..0]))
                 }
             },
-            Marker::FixMap(_) => todo!(),
-            Marker::Map16 => todo!(),
-            Marker::Map32 => todo!(),
-            Marker::FixExt1 => todo!(),
-            Marker::FixExt2 => todo!(),
-            Marker::FixExt4 => todo!(),
-            Marker::FixExt8 => todo!(),
-            Marker::FixExt16 => todo!(),
-            Marker::Ext8 => todo!(),
-            Marker::Ext16 => todo!(),
-            Marker::Ext32 => todo!(),
-            Marker::Reserved => todo!(),
+            Marker::FixMap(len) => {
+                if len > 0{
+                    let mut reader = Reader::new(self.bytes.remaining_slice());
+                    for _ in 0..len {
+                        let _ = reader.read()?;
+                        let _ = reader.read()?;
+                    }
+
+                    Ok(ReadResult::FixMap(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?))
+                } else {
+                    Ok(ReadResult::FixMap(marker,&self.bytes.remaining_slice()[..0]))
+                }
+            },
+            Marker::Map16 => {
+                let len:u16  = self.bytes.read_data_u16()?;
+                if len > 0{
+                    let mut reader = Reader::new(self.bytes.remaining_slice());
+                    for _ in 0..len {
+                        let _ = reader.read()?;
+                        let _ = reader.read()?;
+                    }
+
+                    Ok(ReadResult::Map16(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?))
+                } else {
+                    Ok(ReadResult::Map16(marker,&self.bytes.remaining_slice()[..0]))
+                }
+            },
+            Marker::Map32 => {
+                let len:u32  = self.bytes.read_data_u32()?;
+                if len > 0{
+                    let mut reader = Reader::new(self.bytes.remaining_slice());
+                    for _ in 0..len {
+                        let _ = reader.read()?;
+                        let _ = reader.read()?;
+                    }
+
+                    Ok(ReadResult::Map16(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?))
+                } else {
+                    Ok(ReadResult::Map16(marker,&self.bytes.remaining_slice()[..0]))
+                }
+            },
+            Marker::FixExt1 => {
+                let ext_type:i8  = self.bytes.read_data_i8()?;
+                Ok(ReadResult::FixExt1(marker, ext_type,
+                self.bytes.read_exact_ref(1usize)?))
+            },
+            Marker::FixExt2 => {
+                let ext_type:i8  = self.bytes.read_data_i8()?;
+                Ok(ReadResult::FixExt2(marker, ext_type,
+                self.bytes.read_exact_ref(2usize)?))
+            },
+            Marker::FixExt4 => {
+                let ext_type:i8  = self.bytes.read_data_i8()?;
+                Ok(ReadResult::FixExt4(marker, ext_type,
+                self.bytes.read_exact_ref(4usize)?))
+            },
+            Marker::FixExt8 => {
+                let ext_type:i8  = self.bytes.read_data_i8()?;
+                Ok(ReadResult::FixExt8(marker, ext_type,
+                self.bytes.read_exact_ref(8usize)?))
+            },
+            Marker::FixExt16 => {
+                let ext_type:i8  = self.bytes.read_data_i8()?;
+                Ok(ReadResult::FixExt16(marker, ext_type,
+                self.bytes.read_exact_ref(16usize)?))
+            },
+            Marker::Ext8 => {
+                let len:u8 = self.bytes.read_data_u8()?;
+                let ext_type:i8  = self.bytes.read_data_i8()?;
+                Ok(ReadResult::Ext8(marker, ext_type,
+                self.bytes.read_exact_ref(len as usize)?))
+            },
+            Marker::Ext16 => {
+                let len:u16 = self.bytes.read_data_u16()?;
+                let ext_type:i8  = self.bytes.read_data_i8()?;
+                Ok(ReadResult::Ext16(marker, ext_type,
+                self.bytes.read_exact_ref(len as usize)?))
+            },
+            Marker::Ext32 => {
+                let len:u32 = self.bytes.read_data_u32()?;
+                let ext_type:i8  = self.bytes.read_data_i8()?;
+                Ok(ReadResult::Ext32(marker, ext_type,
+                self.bytes.read_exact_ref(len as usize)?))
+            },
+            Marker::Reserved => unimplemented!(),
         }
-
-
-        // Ok(Marker::from_u8(0u8))
     }
 }
