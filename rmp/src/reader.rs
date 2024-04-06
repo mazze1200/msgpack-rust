@@ -68,10 +68,6 @@ impl<'a> Reader<'a>{
     /// It is zero copy but it still has to know/measure the size of of each object, which in turn means 
     /// Array32 or Map32 can be expensive since it has to iterate over all the objects in the array/map. 
     pub fn read(&mut self) -> Result<ReadResult<'a>, errors::Error>
-    // where R: RmpRead + decode::RmpReadErr + 'a, 
-    //  ValueReadError<R>: From<MarkerReadError<BytesReadError>>,
-    //  ValueReadError<R>: From<ValueReadError<BytesReadError>>,     
-    //  ValueReadError<R>: From<BytesReadError>
     {
         let marker = read_marker(&mut self.bytes)?;
         match marker{
