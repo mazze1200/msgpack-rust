@@ -1,5 +1,7 @@
 
-use crate::{decode::{self, bytes::BytesReadError, read_marker, Bytes, MarkerReadError, RmpRead, ValueReadError}, Marker};
+use core::str::Utf8Error;
+
+use crate::{decode::{self, bytes::BytesReadError, read_marker, Bytes, MarkerReadError, RmpRead, RmpReadErr, ValueReadError}, errors, Marker};
 
 pub enum ReadResult<'a>{
     FixPos(Marker,u8),
@@ -17,10 +19,10 @@ pub enum ReadResult<'a>{
     I64 (Marker, i64),
     F32 (Marker, f32),
     F64(Marker, f64),
-    FixStr(Marker,  &'a str ),
-    Str8 (Marker, &'a str ),
-    Str16 (Marker,&'a str  ),
-    Str32(Marker, &'a str ),
+    FixStr(Marker,  Result<&'a str, (Utf8Error,  &'a [u8]) >),
+    Str8 (Marker, Result<&'a str, (Utf8Error,  &'a [u8]) >),
+    Str16 (Marker,Result<&'a str, (Utf8Error,  &'a [u8]) >),
+    Str32(Marker, Result<&'a str, (Utf8Error,  &'a [u8]) >),
     Bin8(Marker, &'a [u8]),
     Bin16(Marker,&'a [u8] ),
     Bin32(Marker,&'a [u8] ),
@@ -39,11 +41,12 @@ pub enum ReadResult<'a>{
     Ext16 (Marker,i8, &'a [u8] ),
     Ext32 (Marker,i8, &'a [u8] ),
 }
-
-struct Reader<'a> {
+#[cfg(not(feature = "std"))] 
+pub struct Reader<'a> {
     bytes: Bytes<'a>
 }
 
+#[cfg(not(feature = "std"))] 
 impl<'a> Reader<'a>{
     pub fn new(buf: &'a [u8]) -> Self {
         Reader{
@@ -51,14 +54,24 @@ impl<'a> Reader<'a>{
         }
     }
 
+    /// The MessagePack spec states that is allowed to have invalid utf8 sequences and the API shall 
+    /// offer access to the raw buffer in this case.
+    /// https://github.com/msgpack/msgpack/blob/8aa09e2a6a9180a49fc62ecfefe149f063cc5e4b/spec.md?plain=1#L69
+    fn try_convert_str(buffer: &'a [u8]) -> Result<&'a str, (Utf8Error,  &'a [u8]) >{
+        match  core::str::from_utf8(buffer){
+            Ok(res) => Ok(res),
+            Err(err) => Err((err, buffer)),
+        }
+    }
+
     /// This function is a zero copy implementation to retrieve the values out of the slice.
     /// It is zero copy but it still has to know/measure the size of of each object, which in turn means 
     /// Array32 or Map32 can be expensive since it has to iterate over all the objects in the array/map. 
-    pub fn read<R>(&mut self) -> Result<ReadResult<'a>, ValueReadError<R>>
-    where R: RmpRead + decode::RmpReadErr,
-     ValueReadError<R>: From<MarkerReadError<BytesReadError>>,
-     ValueReadError<R>: From<ValueReadError<BytesReadError>>,     
-     ValueReadError<R>: From<BytesReadError>
+    pub fn read(&mut self) -> Result<ReadResult<'a>, errors::Error>
+    // where R: RmpRead + decode::RmpReadErr + 'a, 
+    //  ValueReadError<R>: From<MarkerReadError<BytesReadError>>,
+    //  ValueReadError<R>: From<ValueReadError<BytesReadError>>,     
+    //  ValueReadError<R>: From<BytesReadError>
     {
         let marker = read_marker(&mut self.bytes)?;
         match marker{
@@ -78,21 +91,21 @@ impl<'a> Reader<'a>{
             Marker::F32 => Ok(ReadResult::F32(marker,self.bytes.read_data_f32()?)),
             Marker::F64 => Ok(ReadResult::F64(marker,self.bytes.read_data_f64()?)),
             Marker::FixStr(val) => Ok(ReadResult::FixStr(marker, 
-                core::str::from_utf8(self.bytes.read_exact_ref(val as usize)?).unwrap())),
+                Reader::try_convert_str(self.bytes.read_exact_ref(val as usize)?))),
             Marker::Str8 => {
                 let len:u8  = self.bytes.read_data_u8()?;
                 Ok(ReadResult::Str8(marker, 
-                core::str::from_utf8(self.bytes.read_exact_ref(len as usize)?).unwrap()))
+                    Reader::try_convert_str(self.bytes.read_exact_ref(len as usize)?)))
             },
             Marker::Str16 => {
                 let len:u16  = self.bytes.read_data_u16()?;
                 Ok(ReadResult::Str16(marker, 
-                core::str::from_utf8(self.bytes.read_exact_ref(len as usize)?).unwrap()))
+                    Reader::try_convert_str(self.bytes.read_exact_ref(len as usize)?)))
             },
             Marker::Str32 =>{
                 let len:u32  = self.bytes.read_data_u32()?;
                 Ok(ReadResult::Str32(marker, 
-                core::str::from_utf8(self.bytes.read_exact_ref(len as usize)?).unwrap()))
+                    Reader::try_convert_str(self.bytes.read_exact_ref(len as usize)?)))
             },
             Marker::Bin8 =>  {
                 let len:u8  = self.bytes.read_data_u8()?;
