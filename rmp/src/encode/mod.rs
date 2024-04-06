@@ -27,7 +27,7 @@ use core::fmt::{self, Display, Debug, Formatter};
 #[cfg(not(feature = "std"))] 
 use crate::decode;
 
-use crate::Marker;
+use crate::{errors, Marker};
 
 pub mod buffer;
 #[cfg(feature = "std")]
@@ -244,28 +244,40 @@ impl From<ValueWriteError<Error>> for Error {
 
 
 #[cfg(not(feature = "std"))] 
-impl From<ValueWriteError<FixedBufCapacityOverflow>> for Error 
+impl<E:RmpWriteErr> From<ValueWriteError<E>> for Error 
 {
-    fn from(err: ValueWriteError<FixedBufCapacityOverflow>) -> Self {
-        Error{}
-        // match err {
-        //     ValueWriteError::InvalidMarkerWrite(ref err) |
-        //     ValueWriteError::InvalidDataWrite(ref err) => ValueWriteError::InvalidDataWrite(*err),
-        // }
+    fn from(err: ValueWriteError<E>) -> Self {
+        match err {
+            ValueWriteError::InvalidMarkerWrite(_) => Error::MarkerWriteError,
+            ValueWriteError::InvalidDataWrite(_) => Error::DataWriteError,
+            // ValueWriteError::InvalidMarkerWrite(ref err) |
+            // ValueWriteError::InvalidDataWrite(ref err) => ValueWriteError::InvalidDataWrite(*err),
+        }
     }
 }
 
 #[cfg(not(feature = "std"))] 
-impl From<FixedBufCapacityOverflow> for decode::Error 
+impl From<<&mut [u8] as RmpWrite>::Error> for Error 
 {
-    fn from(err: FixedBufCapacityOverflow) -> Self {
-        decode::Error{}
-        // match err {
-        //     ValueWriteError::InvalidMarkerWrite(ref err) |
-        //     ValueWriteError::InvalidDataWrite(ref err) => ValueWriteError::InvalidDataWrite(*err),
-        // }
+    fn from(_: <&mut [u8] as RmpWrite>::Error) -> Self {
+        Error::MarkerWriteError
     }
 }
+
+// #[cfg(not(feature = "std"))] 
+// impl<E:RmpWriteErr>  From<E> for errors::Error 
+// {
+//     fn from(value: E) -> Self {
+//         Error::RmpWriteErr
+//     }
+//     // fn from(err: FixedBufCapacityOverflow) -> Self {
+//     //     decode::Error{}
+//     //     // match err {
+//     //     //     ValueWriteError::InvalidMarkerWrite(ref err) |
+//     //     //     ValueWriteError::InvalidDataWrite(ref err) => ValueWriteError::InvalidDataWrite(*err),
+//     //     // }
+//     // }
+// }
 
 
 

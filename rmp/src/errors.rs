@@ -22,7 +22,10 @@ pub type Error = ::std::io::Error;
 // #[deprecated(note = "Doesn't work meaningfully on no_std")]
 // pub type Error = ::core::convert::Infallible;
 #[derive(Debug)]
-pub struct Error{}
+pub enum Error{
+    MarkerWriteError,
+    DataWriteError,
+}
 
 #[cfg(not(feature = "std"))]
 impl Display for Error {
