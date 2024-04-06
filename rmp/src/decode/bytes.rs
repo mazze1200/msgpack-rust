@@ -77,7 +77,7 @@ impl<'a> Bytes<'a> {
     /// Return the slice with the length len from the internal buffer
     /// stating at the current offset.
     #[allow(unused)]
-    fn read_exact_ref(&mut self, len: usize) -> Result<&'a [u8], BytesReadError> {
+    pub fn read_exact_ref(&mut self, len: usize) -> Result<&'a [u8], BytesReadError> {
         if len <= self.bytes.len() {
             let (src, newly_remaining) = self.bytes.split_at(len);
             self.bytes = newly_remaining;
