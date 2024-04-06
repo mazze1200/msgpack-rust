@@ -22,7 +22,7 @@ use core::fmt::{self, Display, Debug, Formatter};
 #[cfg(not(feature = "std"))] 
 use crate::decode;
 
-use crate::{errors, Marker};
+use crate::Marker;
 
 pub mod buffer;
 #[cfg(feature = "std")]
