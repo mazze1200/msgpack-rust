@@ -52,8 +52,9 @@ impl<'a> Reader<'a>{
 
     pub fn read<R>(&mut self) -> Result<ReadResult<'a>, ValueReadError<R>>
     where R: RmpRead + decode::RmpReadErr,
-     ValueReadError<R>: From<MarkerReadError<BytesReadError>>
-     {
+     ValueReadError<R>: From<MarkerReadError<BytesReadError>>,
+     ValueReadError<R>: From<BytesReadError>
+    {
         let marker = read_marker(&mut self.bytes)?;
         match marker{
             Marker::FixPos(val) => Ok(ReadResult::FixPos(marker,val)),
@@ -61,8 +62,7 @@ impl<'a> Reader<'a>{
             Marker::Null =>  Ok(ReadResult::Null(marker)),
             Marker::True =>  Ok(ReadResult::True(marker,true)),
             Marker::False => Ok(ReadResult::False(marker,false)),
-            Marker::U8 =>todo!(),
-            // Marker::U8 => Ok(ReadResult::U8(marker,self.bytes.read_u8())),
+            Marker::U8 => Ok(ReadResult::U8(marker,self.bytes.read_u8()?)),
             Marker::U16 => todo!(),
             Marker::U32 => todo!(),
             Marker::U64 => todo!(),
