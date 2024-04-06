@@ -157,6 +157,8 @@ pub mod encode;
 mod marker;
 mod errors;
 
+pub mod reader;
+
 pub use crate::marker::Marker;
 
 /// Version of the MessagePack [spec](http://github.com/msgpack/msgpack/blob/master/spec.md).
