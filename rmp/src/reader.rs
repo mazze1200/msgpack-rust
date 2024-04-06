@@ -67,6 +67,9 @@ impl<'a> Reader<'a>{
     /// This function is a zero copy implementation to retrieve the values out of the slice.
     /// It is zero copy but it still has to know/measure the size of of each object, which in turn means 
     /// Array32 or Map32 can be expensive since it has to iterate over all the objects in the array/map. 
+    /// 
+    /// Returns Result<Option<ReadResult<_>>, _> to show if the buffer has been completly read and is in valid state: Ok(None)
+    /// If the buffer ends e.g. after a Marker and the connected data cannot be read an error is returned. 
     pub fn read(&mut self) -> Result<Option<ReadResult<'a>>, errors::Error>
     {
         match read_marker(&mut self.bytes){
