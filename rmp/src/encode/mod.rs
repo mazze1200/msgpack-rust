@@ -15,11 +15,6 @@ pub use self::sint::{write_i16, write_i32, write_i64, write_i8, write_nfix, writ
 pub use self::str::{write_str, write_str_len};
 pub use self::uint::{write_pfix, write_u16, write_u32, write_u64, write_u8, write_uint};
 
-#[cfg(not(feature = "std"))] 
-use self::buffer::FixedBufCapacityOverflow;
-
-
-// use core::convert::Infallible;
 #[cfg(feature = "std")]
 use std::error;
 use core::fmt::{self, Display, Debug, Formatter};
