@@ -2,6 +2,8 @@
 //!
 //! This is used mainly for backwards compatibility and abstraction over std/no_std.
 
+use core::fmt::Display;
+
 /// An alias to the "default" error handling type.
 ///
 /// This is problematic because when working on `#[no_std]`, because there is no [`std::error::Error`] trait and also no [`std::io::Error`] type.
@@ -16,8 +18,17 @@
 pub type Error = ::std::io::Error;
 
 #[cfg(not(feature = "std"))]
-#[deprecated(note = "Doesn't work meaningfully on no_std")]
-pub type Error = ::core::convert::Infallible;
+// #[deprecated(note = "Doesn't work meaningfully on no_std")]
+// pub type Error = ::core::convert::Infallible;
+#[derive(Debug)]
+pub struct Error{}
+
+#[cfg(not(feature = "std"))]
+impl Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Error")
+    }
+}
 
 
 /// Internal type used to abstract over the [`std::error::Error`] trait

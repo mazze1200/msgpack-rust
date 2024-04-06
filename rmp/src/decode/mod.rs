@@ -47,7 +47,8 @@ pub use crate::errors::Error;
 pub trait RmpReadErr: Display + Debug + crate::errors::MaybeErrBound + 'static {}
 #[cfg(feature = "std")]
 impl RmpReadErr for std::io::Error {}
-impl RmpReadErr for core::convert::Infallible {}
+#[cfg(not(feature = "std"))]
+impl RmpReadErr for Error{}
 
 macro_rules! read_byteorder_utils {
     ($($name:ident => $tp:ident),* $(,)?) => {

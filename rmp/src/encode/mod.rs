@@ -10,16 +10,18 @@ mod uint;
 mod vec;
 
 pub use self::bin::{write_bin, write_bin_len};
+use self::buffer::FixedBufCapacityOverflow;
 pub use self::dec::{write_f32, write_f64};
 pub use self::sint::{write_i16, write_i32, write_i64, write_i8, write_nfix, write_sint};
 pub use self::str::{write_str, write_str_len};
 pub use self::uint::{write_pfix, write_u16, write_u32, write_u64, write_u8, write_uint};
 
+// use core::convert::Infallible;
 #[cfg(feature = "std")]
 use std::error;
 use core::fmt::{self, Display, Debug, Formatter};
 
-use crate::Marker;
+use crate::{decode, Marker};
 
 pub mod buffer;
 #[cfg(feature = "std")]
@@ -36,7 +38,8 @@ pub use crate::errors::Error;
 pub trait RmpWriteErr: Display + Debug + crate::errors::MaybeErrBound + 'static {}
 #[cfg(feature = "std")]
 impl RmpWriteErr for std::io::Error {}
-impl RmpWriteErr for core::convert::Infallible {}
+#[cfg(not(feature = "std"))]
+impl RmpWriteErr for Error {}
 
 // An error returned from the `write_marker` and `write_fixval` functions.
 struct MarkerWriteError<E: RmpWriteErr>(E);
@@ -111,8 +114,6 @@ mod sealed{
     impl<T: ?Sized + std::io::Write> Sealed for T {}
     #[cfg(not(feature = "std"))]
     impl Sealed for &mut [u8] {}
-    #[cfg(feature = "std")]
-    impl Sealed for alloc::vec::Vec<u8> {}
     #[cfg(feature = "std")]
     impl Sealed for super::ByteBuf {}
 }
@@ -225,15 +226,55 @@ impl<E: RmpWriteErr> From<DataWriteError<E>> for ValueWriteError<E> {
 }
 
 #[cfg(feature = "std")] // Backwards compatbility ;)
-impl From<ValueWriteError<std::io::Error>> for std::io::Error {
+impl From<ValueWriteError<Error>> for Error {
     #[cold]
-    fn from(err: ValueWriteError<std::io::Error>) -> std::io::Error {
+    fn from(err: ValueWriteError<Error>) -> Error {
         match err {
             ValueWriteError::InvalidMarkerWrite(err) |
             ValueWriteError::InvalidDataWrite(err) => err,
         }
     }
 }
+
+
+#[cfg(not(feature = "std"))] 
+impl From<ValueWriteError<FixedBufCapacityOverflow>> for Error 
+{
+    fn from(err: ValueWriteError<FixedBufCapacityOverflow>) -> Self {
+        Error{}
+        // match err {
+        //     ValueWriteError::InvalidMarkerWrite(ref err) |
+        //     ValueWriteError::InvalidDataWrite(ref err) => ValueWriteError::InvalidDataWrite(*err),
+        // }
+    }
+}
+
+#[cfg(not(feature = "std"))] 
+impl From<FixedBufCapacityOverflow> for decode::Error 
+{
+    fn from(err: FixedBufCapacityOverflow) -> Self {
+        decode::Error{}
+        // match err {
+        //     ValueWriteError::InvalidMarkerWrite(ref err) |
+        //     ValueWriteError::InvalidDataWrite(ref err) => ValueWriteError::InvalidDataWrite(*err),
+        // }
+    }
+}
+
+
+
+// impl From<ValueWriteError<FixedBufCapacityOverflow>> for Error 
+// {
+//     fn from(err: ValueWriteError<FixedBufCapacityOverflow>) -> Self {
+//         panic!("");
+//         // match err {
+//         //     ValueWriteError::InvalidMarkerWrite(ref err) |
+//         //     ValueWriteError::InvalidDataWrite(ref err) => ValueWriteError::InvalidDataWrite(*err),
+//         // }
+//     }
+// }
+
+
 
 #[cfg(feature = "std")]
 impl<E: RmpWriteErr> error::Error for ValueWriteError<E> {

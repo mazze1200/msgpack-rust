@@ -1,6 +1,7 @@
 //! Implementation of the [ByteBuf] type
 
-use super::RmpWrite;
+use super::{RmpWrite, RmpWriteErr};
+use core::fmt::Error;
 #[cfg(not(feature = "std"))]
 use core::fmt::{self, Display, Formatter};
 #[cfg(feature = "std")]
@@ -159,7 +160,7 @@ impl From<Vec<u8>> for ByteBuf {
 }
 #[cfg(feature = "std")]
 impl RmpWrite for ByteBuf {
-    type Error = core::convert::Infallible;
+    type Error = std::io::Error;
 
     #[inline]
     fn write_u8(&mut self, val: u8) -> Result<(), Self::Error> {
@@ -170,25 +171,6 @@ impl RmpWrite for ByteBuf {
     #[inline]
     fn write_bytes(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         self.bytes.extend_from_slice(buf);
-        Ok(())
-    }
-}
-
-
-#[cfg(feature = "std")]
-impl<'a> RmpWrite for Vec<u8> {
-    type Error = core::convert::Infallible;
-
-
-    #[inline]
-    fn write_u8(&mut self, val: u8) -> Result<(), Self::Error> {
-        self.push(val);
-        Ok(())
-    }
-
-    #[inline]
-    fn write_bytes(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        self.extend_from_slice(buf);
         Ok(())
     }
 }
