@@ -3,12 +3,10 @@ use core::str::Utf8Error;
 
 use crate::{decode::{read_marker, Bytes, RmpRead}, errors, Marker};
 
+#[derive(Debug)]
 pub enum ReadResult<'a>{
-    FixPos(Marker,u8),
-    FixNeg(Marker, i8),
     Null (Marker),
-    True(Marker,bool ),
-    False (Marker,bool ),
+    Bool(Marker,bool ),
     U8 (Marker, u8),
     U16(Marker,u16 ),
     U32(Marker, u32),
@@ -19,27 +17,11 @@ pub enum ReadResult<'a>{
     I64 (Marker, i64),
     F32 (Marker, f32),
     F64(Marker, f64),
-    FixStr(Marker,  Result<&'a str, (Utf8Error,  &'a [u8]) >),
-    Str8 (Marker, Result<&'a str, (Utf8Error,  &'a [u8]) >),
-    Str16 (Marker,Result<&'a str, (Utf8Error,  &'a [u8]) >),
-    Str32(Marker, Result<&'a str, (Utf8Error,  &'a [u8]) >),
-    Bin8(Marker, &'a [u8]),
-    Bin16(Marker,&'a [u8] ),
-    Bin32(Marker,&'a [u8] ),
-    FixArray(Marker,&'a [u8] ),
-    Array16 (Marker, &'a [u8] ),
-    Array32 (Marker, &'a [u8] ),
-    FixMap(Marker, &'a [u8] ),
-    Map16 (Marker,&'a [u8]  ),
-    Map32 (Marker,&'a [u8]  ),
-    FixExt1 (Marker, i8, &'a [u8] ),
-    FixExt2 (Marker,  i8, &'a [u8]),
-    FixExt4 (Marker,  i8, &'a [u8]),
-    FixExt8 (Marker,  i8, &'a [u8]),
-    FixExt16 (Marker, i8, &'a [u8] ),
-    Ext8 (Marker, i8, &'a [u8]),
-    Ext16 (Marker,i8, &'a [u8] ),
-    Ext32 (Marker,i8, &'a [u8] ),
+    Str(Marker, Result<&'a str, (Utf8Error,  &'a [u8]) >),
+    Bin(Marker, &'a [u8]),
+    Array(Marker,&'a [u8] ),
+    Map(Marker, &'a [u8] ),
+    Ext (Marker, i8, &'a [u8] ),
 }
 #[cfg(not(feature = "std"))] 
 pub struct Reader<'a> {
@@ -70,17 +52,17 @@ impl<'a> Reader<'a>{
     /// 
     /// Returns Result<Option<ReadResult<_>>, _> to show if the buffer has been completly read and is in valid state: Ok(None)
     /// If the buffer ends e.g. after a Marker and the connected data cannot be read an error is returned. 
-    pub fn read(&mut self) -> Result<Option<ReadResult<'a>>, errors::Error>
+    fn read(&mut self) -> Result<Option<ReadResult<'a>>, errors::Error>
     {
         match read_marker(&mut self.bytes){
             Ok(marker) => 
             {
                 let res = match marker{
-                    Marker::FixPos(val) => ReadResult::FixPos(marker,val),
-                    Marker::FixNeg(val) => ReadResult::FixNeg(marker,val),
+                    Marker::FixPos(val) => ReadResult::U8(marker,val),
+                    Marker::FixNeg(val) => ReadResult::I8(marker,val),
                     Marker::Null =>  ReadResult::Null(marker),
-                    Marker::True =>  ReadResult::True(marker,true),
-                    Marker::False => ReadResult::False(marker,false),
+                    Marker::True =>  ReadResult::Bool(marker,true),
+                    Marker::False => ReadResult::Bool(marker,false),
                     Marker::U8 => ReadResult::U8(marker,self.bytes.read_data_u8()?),
                     Marker::U16 => ReadResult::U16(marker,self.bytes.read_data_u16()?),
                     Marker::U32 => ReadResult::U32(marker,self.bytes.read_data_u32()?),
@@ -91,36 +73,36 @@ impl<'a> Reader<'a>{
                     Marker::I64 => ReadResult::I64(marker,self.bytes.read_data_i64()?),
                     Marker::F32 => ReadResult::F32(marker,self.bytes.read_data_f32()?),
                     Marker::F64 => ReadResult::F64(marker,self.bytes.read_data_f64()?),
-                    Marker::FixStr(val) => ReadResult::FixStr(marker, 
+                    Marker::FixStr(val) => ReadResult::Str(marker, 
                         Reader::try_convert_str(self.bytes.read_exact_ref(val as usize)?)),
                     Marker::Str8 => {
                         let len:u8  = self.bytes.read_data_u8()?;
-                        ReadResult::Str8(marker, 
+                        ReadResult::Str(marker, 
                             Reader::try_convert_str(self.bytes.read_exact_ref(len as usize)?))
                     },
                     Marker::Str16 => {
                         let len:u16  = self.bytes.read_data_u16()?;
-                        ReadResult::Str16(marker, 
+                        ReadResult::Str(marker, 
                             Reader::try_convert_str(self.bytes.read_exact_ref(len as usize)?))
                     },
                     Marker::Str32 =>{
                         let len:u32  = self.bytes.read_data_u32()?;
-                        ReadResult::Str32(marker, 
+                        ReadResult::Str(marker, 
                             Reader::try_convert_str(self.bytes.read_exact_ref(len as usize)?))
                     },
                     Marker::Bin8 =>  {
                         let len:u8  = self.bytes.read_data_u8()?;
-                        ReadResult::Bin8(marker, 
+                        ReadResult::Bin(marker, 
                         self.bytes.read_exact_ref(len as usize)?)
                     },
                     Marker::Bin16 => {
                         let len:u16  = self.bytes.read_data_u16()?;
-                        ReadResult::Bin16(marker, 
+                        ReadResult::Bin(marker, 
                         self.bytes.read_exact_ref(len as usize)?)
                     },
                     Marker::Bin32 =>{
                         let len:u32  = self.bytes.read_data_u32()?;
-                        ReadResult::Bin32(marker, 
+                        ReadResult::Bin(marker, 
                         self.bytes.read_exact_ref(len as usize)?)
                     },
                     Marker::FixArray(len) => {
@@ -130,9 +112,9 @@ impl<'a> Reader<'a>{
                                 let _ = reader.read()?;
                             }
         
-                            ReadResult::FixArray(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
+                            ReadResult::Array(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
                         } else {
-                            ReadResult::FixArray(marker,&self.bytes.remaining_slice()[..0])
+                            ReadResult::Array(marker,&self.bytes.remaining_slice()[..0])
                         }
                     },
                     Marker::Array16 => {
@@ -143,9 +125,9 @@ impl<'a> Reader<'a>{
                                 let _ = reader.read()?;
                             }
         
-                            ReadResult::Array16(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
+                            ReadResult::Array(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
                         } else {
-                            ReadResult::Array16(marker,&self.bytes.remaining_slice()[..0])
+                            ReadResult::Array(marker,&self.bytes.remaining_slice()[..0])
                         }
                     },
                     Marker::Array32 => {
@@ -156,9 +138,9 @@ impl<'a> Reader<'a>{
                                 let _ = reader.read()?;
                             }
         
-                            ReadResult::Array32(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
+                            ReadResult::Array(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
                         } else {
-                            ReadResult::Array32(marker,&self.bytes.remaining_slice()[..0])
+                            ReadResult::Array(marker,&self.bytes.remaining_slice()[..0])
                         }
                     },
                     Marker::FixMap(len) => {
@@ -169,9 +151,9 @@ impl<'a> Reader<'a>{
                                 let _ = reader.read()?;
                             }
         
-                            ReadResult::FixMap(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
+                            ReadResult::Map(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
                         } else {
-                            ReadResult::FixMap(marker,&self.bytes.remaining_slice()[..0])
+                            ReadResult::Map(marker,&self.bytes.remaining_slice()[..0])
                         }
                     },
                     Marker::Map16 => {
@@ -183,9 +165,9 @@ impl<'a> Reader<'a>{
                                 let _ = reader.read()?;
                             }
         
-                            ReadResult::Map16(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
+                            ReadResult::Map(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
                         } else {
-                            ReadResult::Map16(marker,&self.bytes.remaining_slice()[..0])
+                            ReadResult::Map(marker,&self.bytes.remaining_slice()[..0])
                         }
                     },
                     Marker::Map32 => {
@@ -197,52 +179,52 @@ impl<'a> Reader<'a>{
                                 let _ = reader.read()?;
                             }
         
-                            ReadResult::Map16(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
+                            ReadResult::Map(marker,&self.bytes.read_exact_ref(reader.bytes.position() as usize)?)
                         } else {
-                            ReadResult::Map16(marker,&self.bytes.remaining_slice()[..0])
+                            ReadResult::Map(marker,&self.bytes.remaining_slice()[..0])
                         }
                     },
                     Marker::FixExt1 => {
                         let ext_type:i8  = self.bytes.read_data_i8()?;
-                        ReadResult::FixExt1(marker, ext_type,
+                        ReadResult::Ext(marker, ext_type,
                         self.bytes.read_exact_ref(1usize)?)
                     },
                     Marker::FixExt2 => {
                         let ext_type:i8  = self.bytes.read_data_i8()?;
-                        ReadResult::FixExt2(marker, ext_type,
+                        ReadResult::Ext(marker, ext_type,
                         self.bytes.read_exact_ref(2usize)?)
                     },
                     Marker::FixExt4 => {
                         let ext_type:i8  = self.bytes.read_data_i8()?;
-                        ReadResult::FixExt4(marker, ext_type,
+                        ReadResult::Ext(marker, ext_type,
                         self.bytes.read_exact_ref(4usize)?)
                     },
                     Marker::FixExt8 => {
                         let ext_type:i8  = self.bytes.read_data_i8()?;
-                        ReadResult::FixExt8(marker, ext_type,
+                        ReadResult::Ext(marker, ext_type,
                         self.bytes.read_exact_ref(8usize)?)
                     },
                     Marker::FixExt16 => {
                         let ext_type:i8  = self.bytes.read_data_i8()?;
-                        ReadResult::FixExt16(marker, ext_type,
+                        ReadResult::Ext(marker, ext_type,
                         self.bytes.read_exact_ref(16usize)?)
                     },
                     Marker::Ext8 => {
                         let len:u8 = self.bytes.read_data_u8()?;
                         let ext_type:i8  = self.bytes.read_data_i8()?;
-                        ReadResult::Ext8(marker, ext_type,
+                        ReadResult::Ext(marker, ext_type,
                         self.bytes.read_exact_ref(len as usize)?)
                     },
                     Marker::Ext16 => {
                         let len:u16 = self.bytes.read_data_u16()?;
                         let ext_type:i8  = self.bytes.read_data_i8()?;
-                        ReadResult::Ext16(marker, ext_type,
+                        ReadResult::Ext(marker, ext_type,
                         self.bytes.read_exact_ref(len as usize)?)
                     },
                     Marker::Ext32 => {
                         let len:u32 = self.bytes.read_data_u32()?;
                         let ext_type:i8  = self.bytes.read_data_i8()?;
-                        ReadResult::Ext32(marker, ext_type,
+                        ReadResult::Ext(marker, ext_type,
                         self.bytes.read_exact_ref(len as usize)?)
                     },
                     Marker::Reserved => unimplemented!(),
@@ -253,6 +235,20 @@ impl<'a> Reader<'a>{
             Err(err) =>  match err.0{
                 crate::decode::bytes::BytesReadError::InsufficientBytes { expected: _, actual: _, position: _ } => return Ok(None),
             },
+        }
+    }
+}
+
+impl<'a> Iterator for Reader<'a>{
+    type Item = Result<ReadResult<'a>, errors::Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.read(){
+            Ok(res) => match res{
+                Some(val) => Some(Ok(val)),
+                None => None,
+            },
+            Err(err) => Some(Err(err)),
         }
     }
 }
