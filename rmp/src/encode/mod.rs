@@ -19,9 +19,6 @@ pub use self::uint::{write_pfix, write_u16, write_u32, write_u64, write_u8, writ
 use std::error;
 use core::fmt::{self, Display, Debug, Formatter};
 
-#[cfg(not(feature = "std"))] 
-use crate::decode;
-
 use crate::Marker;
 
 pub mod buffer;
