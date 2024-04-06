@@ -31,6 +31,9 @@ use core::fmt::{self, Display, Debug, Formatter};
 
 use num_traits::cast::FromPrimitive;
 
+#[cfg(not(feature = "std"))]
+use self::bytes::BytesReadError;
+
 use crate::Marker;
 
 pub mod bytes;
@@ -239,6 +242,30 @@ impl<E: RmpReadErr> From<E> for MarkerReadError<E> {
     #[cold]
     fn from(err: E) -> MarkerReadError<E> {
         MarkerReadError(err)
+    }
+}
+
+#[cfg(not(feature = "std"))] 
+impl<E:RmpReadErr> From<MarkerReadError<E>> for Error 
+{
+    fn from(value: MarkerReadError<E>) -> Self {
+        Error::MarkerReadError
+    }
+}
+
+#[cfg(not(feature = "std"))] 
+impl<E:RmpReadErr> From<ValueReadError<E>> for Error 
+{
+    fn from(value: ValueReadError<E>) -> Self {
+        Error::ValueReadError
+    }
+}
+
+#[cfg(not(feature = "std"))] 
+impl From<BytesReadError> for Error 
+{
+    fn from(value: BytesReadError) -> Self {
+        Error::BytesReadError
     }
 }
 

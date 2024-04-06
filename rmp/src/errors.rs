@@ -25,6 +25,9 @@ pub type Error = ::std::io::Error;
 pub enum Error{
     MarkerWriteError,
     DataWriteError,
+    MarkerReadError,
+    ValueReadError,
+    BytesReadError
 }
 
 #[cfg(not(feature = "std"))]
