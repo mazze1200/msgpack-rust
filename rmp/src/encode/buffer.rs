@@ -215,13 +215,18 @@ impl<'a> ByteBuf<'a>{
     
     fn write(&mut self, buf: &[u8]) -> Result<(), errors::Error>  {
         if buf.len() <= (self.bytes.len() - self.offset){
-            self.bytes[self.offset..buf.len()].copy_from_slice(buf);
+            let slice = &mut self.bytes[self.offset..self.offset + buf.len()];
+            slice.copy_from_slice(buf);
             self.offset += buf.len();
             Ok(())
         }
         else{
             Err(errors::Error::InsufficientBytes)
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.offset
     }
 }
 
