@@ -155,7 +155,7 @@ extern crate alloc;
 pub mod decode;
 pub mod encode;
 mod marker;
-mod errors;
+pub mod errors;
 
 
 #[cfg(not(feature = "std"))] 
