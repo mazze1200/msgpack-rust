@@ -157,6 +157,8 @@ pub mod encode;
 mod marker;
 mod errors;
 
+
+#[cfg(not(feature = "std"))] 
 pub mod reader;
 
 pub use crate::marker::Marker;
