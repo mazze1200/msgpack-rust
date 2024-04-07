@@ -13,7 +13,7 @@ use num_traits::cast::FromPrimitive;
 // type ArrayWrite = dyn FnMut(u32) -> WriteRequest<'a,A,M>;
 
 #[derive(Debug)]
-pub enum WriteRequest<'a, A: FnMut(u32) -> Self, M: FnMut(u32) -> (Self, Self)>
+pub enum WriteRequest<'a>
 // where T : Debug,
 {
     Null,
@@ -31,50 +31,43 @@ pub enum WriteRequest<'a, A: FnMut(u32) -> Self, M: FnMut(u32) -> (Self, Self)>
     Str(&'a str),
     Bin(&'a [u8]),
     /// Stores the Marker, the number of object, and the slice with the array of objects
-    Array(u32, A),
+    Array(u32),
     /// Stores the Marker, the number of object tuples, and the slice with the object tuples in the map
-    Map(u32, M),
-    Ext(i8, u32, A),
+    Map(u32),
+    Ext(i8, u32),
 }
 
-impl<'a, A, M> WriteRequest<'a, A, M>
-where
-    A: FnMut(u32) -> Self,
-    M: FnMut(u32) -> (Self, Self),
-{
-   
-fn write_map_marker<W: RmpWrite>(writer: &mut W, count: u32) -> Result<(), Error>
-where
-    Error: From<<W as RmpWrite>::Error>
-{
-    match count{
-        0..=15 => write_marker(writer, Marker::FixMap(count as u8))?,
-        16..=0xffff => {
-            write_marker(writer, Marker::Map16)?;
-            let buf = count as u16;
-            let bytes = buf.to_be_bytes();
-            writer.write_bytes(&bytes[..])?;
-        }
-        _ =>  {
-            write_marker(writer, Marker::Map32)?;
-            let buf = count as u32;
-            let bytes = buf.to_be_bytes();
-            writer.write_bytes(&bytes[..])?;
-        }
-    };
+impl<'a> WriteRequest<'a> {
+    fn write_map_marker<W: RmpWrite>(writer: &mut W, count: u32) -> Result<(), Error>
+    where
+        Error: From<<W as RmpWrite>::Error>,
+    {
+        match count {
+            0..=15 => write_marker(writer, Marker::FixMap(count as u8))?,
+            16..=0xffff => {
+                write_marker(writer, Marker::Map16)?;
+                let buf = count as u16;
+                let bytes = buf.to_be_bytes();
+                writer.write_bytes(&bytes[..])?;
+            }
+            _ => {
+                write_marker(writer, Marker::Map32)?;
+                let buf = count as u32;
+                let bytes = buf.to_be_bytes();
+                writer.write_bytes(&bytes[..])?;
+            }
+        };
 
-    Ok(())
-}
-
+        Ok(())
+    }
 
     pub fn write_request<W: RmpWrite>(&mut self, writer: &mut W) -> Result<(), Error>
     where
         Error: From<<W as RmpWrite>::Error>,
     {
         match self {
-            WriteRequest::Null => 
-            write_marker(writer, Marker::Null)?,
-            WriteRequest::Bool(val) => match val{
+            WriteRequest::Null => write_marker(writer, Marker::Null)?,
+            WriteRequest::Bool(val) => match val {
                 true => write_marker(writer, Marker::True)?,
                 false => write_marker(writer, Marker::False)?,
             },
@@ -90,17 +83,9 @@ where
             WriteRequest::F64(_) => todo!(),
             WriteRequest::Str(_) => todo!(),
             WriteRequest::Bin(_) => todo!(),
-            WriteRequest::Array(_, _) => todo!(),
-            WriteRequest::Map(count, func) => {
-                // write_marker(writer, Marker::FixMap(*count as u8))?;
-                Self::write_map_marker(writer, *count)?;
-                for index in 0..*count{
-                    let (key,val) =  &mut func(index);
-                    key.write_request(writer)?;
-                    val.write_request(writer)?;
-                }
-            },
-            WriteRequest::Ext(ext_type, count, func) => todo!(),
+            WriteRequest::Array(_) => todo!(),
+            WriteRequest::Map(count) => Self::write_map_marker(writer, *count)?,
+            WriteRequest::Ext(ext_type, count) => todo!(),
         }
 
         todo!()
