@@ -1,8 +1,11 @@
 //! Implementation of the [ByteBuf] type
 
-use super::RmpWrite;
+use crate::errors;
+
+use super::{sealed, RmpWrite};
 #[cfg(not(feature = "std"))]
 use core::fmt::{self, Display, Formatter};
+use core::{mem, slice};
 
 /// An error returned from writing to `&mut [u8]` (a byte buffer of fixed capacity) on no_std
 ///
@@ -170,4 +173,51 @@ impl RmpWrite for ByteBuf {
         self.bytes.extend_from_slice(buf);
         Ok(())
     }
+}
+
+
+#[cfg(not(feature = "std"))]
+#[derive(Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct ByteBuf<'a> {
+    bytes: &'a mut [u8],
+}
+
+#[cfg(not(feature = "std"))]
+impl<'a> ByteBuf<'a>{
+    pub fn new(buf: &'a mut [u8]) -> Self{
+        ByteBuf{
+            bytes: buf
+        }
+    }
+
+    fn write(&mut self, buf: &[u8]) -> Result<(), errors::Error>  {
+        if buf.len() <= self.bytes.len(){
+            self.bytes[..buf.len()].copy_from_slice(buf);
+
+            // I have no idea what is going on! Here is a lifetime issue with fn write(&mut self...) not 
+            // beeing fn write(&'a mut self...) and the trait method RmpWrite::write_bytes(&mut self...) not
+            // defining a liftime. What!?
+            let remaining = self.bytes.len() - buf.len();
+            let ptr = self.bytes[buf.len()..].as_mut_ptr() as *mut _;
+            self.bytes = unsafe { slice::from_raw_parts_mut(ptr, remaining) };
+
+            Ok(())
+        }
+        else{
+            Err(errors::Error::InsufficientBytes)
+        }
+    }
+}
+
+
+impl<'a> sealed::Sealed for ByteBuf<'a> {}
+
+#[cfg(not(feature = "std"))]
+impl<'a> RmpWrite  for ByteBuf<'a> {
+    type Error = errors::Error;
+    
+    fn write_bytes(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        self.write(buf)
+    }
+     
 }

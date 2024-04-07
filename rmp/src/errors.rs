@@ -31,7 +31,8 @@ pub enum Error{
     BytesReadError,
     InvalidMarker,
     Utf8Error,
-    MapMissingElementsError
+    MapMissingElementsError,
+    InsufficientBytes
 }
 
 #[cfg(not(feature = "std"))]

@@ -160,6 +160,8 @@ pub mod errors;
 
 #[cfg(not(feature = "std"))] 
 pub mod reader;
+#[cfg(not(feature = "std"))] 
+pub mod writer;
 
 pub use crate::marker::Marker;
 
