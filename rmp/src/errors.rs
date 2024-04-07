@@ -4,6 +4,7 @@
 
 #[cfg(not(feature = "std"))]
 use core::fmt::Display;
+use core::str::Utf8Error;
 
 /// An alias to the "default" error handling type.
 ///
@@ -27,7 +28,10 @@ pub enum Error{
     DataWriteError,
     MarkerReadError,
     ValueReadError,
-    BytesReadError
+    BytesReadError,
+    InvalidMarker,
+    Utf8Error,
+    MapMissingElementsError
 }
 
 #[cfg(not(feature = "std"))]
