@@ -180,16 +180,18 @@ impl RmpWrite for ByteBuf {
 #[derive(Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct ByteBuf<'a> {
     bytes: &'a mut [u8],
+    offset: usize
 }
 
 #[cfg(not(feature = "std"))]
 impl<'a> ByteBuf<'a>{
     pub fn new(buf: &'a mut [u8]) -> Self{
         ByteBuf{
-            bytes: buf
+            bytes: buf,
+            offset: 0
         }
     }
-
+/* 
     fn write(&mut self, buf: &[u8]) -> Result<(), errors::Error>  {
         if buf.len() <= self.bytes.len(){
             self.bytes[..buf.len()].copy_from_slice(buf);
@@ -197,10 +199,24 @@ impl<'a> ByteBuf<'a>{
             // I have no idea what is going on! Here is a lifetime issue with fn write(&mut self...) not 
             // beeing fn write(&'a mut self...) and the trait method RmpWrite::write_bytes(&mut self...) not
             // defining a liftime. What!?
+            // It only ocures when the buffer in the struct is marked as mut.
+            // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=ffe9339105e85a0bc15d4dc862c550d7
             let remaining = self.bytes.len() - buf.len();
             let ptr = self.bytes[buf.len()..].as_mut_ptr() as *mut _;
             self.bytes = unsafe { slice::from_raw_parts_mut(ptr, remaining) };
 
+            Ok(())
+        }
+        else{
+            Err(errors::Error::InsufficientBytes)
+        }
+    }
+    */
+    
+    fn write(&mut self, buf: &[u8]) -> Result<(), errors::Error>  {
+        if buf.len() <= (self.bytes.len() - self.offset){
+            self.bytes[self.offset..buf.len()].copy_from_slice(buf);
+            self.offset += buf.len();
             Ok(())
         }
         else{

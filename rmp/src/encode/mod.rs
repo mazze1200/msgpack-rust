@@ -19,7 +19,7 @@ pub use self::uint::{write_pfix, write_u16, write_u32, write_u64, write_u8, writ
 use std::error;
 use core::fmt::{self, Display, Debug, Formatter};
 
-use crate::Marker;
+use crate::{errors, Marker};
 
 pub mod buffer;
 #[cfg(feature = "std")]
@@ -40,7 +40,7 @@ impl RmpWriteErr for std::io::Error {}
 impl RmpWriteErr for Error {}
 
 // An error returned from the `write_marker` and `write_fixval` functions.
-struct MarkerWriteError<E: RmpWriteErr>(E);
+pub struct MarkerWriteError<E: RmpWriteErr>(E);
 
 impl<E: RmpWriteErr> From<E> for MarkerWriteError<E> {
     #[cold]
@@ -50,8 +50,11 @@ impl<E: RmpWriteErr> From<E> for MarkerWriteError<E> {
 }
 
 
+
+
+
 /// Attempts to write the given marker into the writer.
-fn write_marker<W: RmpWrite>(wr: &mut W, marker: Marker) -> Result<(), MarkerWriteError<W::Error>> {
+pub fn write_marker<W: RmpWrite>(wr: &mut W, marker: Marker) -> Result<(), MarkerWriteError<W::Error>> {
     wr.write_u8(marker.to_u8()).map_err(MarkerWriteError)
 }
 
@@ -213,6 +216,14 @@ impl<E: RmpWriteErr> From<MarkerWriteError<E>> for ValueWriteError<E> {
         }
     }
 }
+
+#[cfg(not(feature = "std"))] 
+impl<E: RmpWriteErr> From<MarkerWriteError<E>> for errors::Error{
+    fn from(_value: MarkerWriteError<E>) -> Self {
+        errors::Error::MarkerWriteError
+    }
+}
+
 
 impl<E: RmpWriteErr> From<DataWriteError<E>> for ValueWriteError<E> {
     #[cold]

@@ -1,6 +1,8 @@
 use crate::{
-    encode::{write_map_len, RmpWrite, ValueWriteError},
-    errors, Marker,
+    decode::RmpReadErr,
+    encode::{write_map_len, write_marker, MarkerWriteError, RmpWrite, ValueWriteError},
+    errors::{self, Error},
+    Marker,
 };
 
 use core::fmt::Debug;
@@ -8,8 +10,10 @@ use num_traits::cast::FromPrimitive;
 
 // pub type WriteRequestIter<'a> = &'a mut dyn Iterator<Item= WriteRequest<'a>>;
 
+// type ArrayWrite = dyn FnMut(u32) -> WriteRequest<'a,A,M>;
+
 #[derive(Debug)]
-pub enum WriteRequest<'a, T: FnMut(u32) -> Self>
+pub enum WriteRequest<'a, A: FnMut(u32) -> Self, M: FnMut(u32) -> (Self, Self)>
 // where T : Debug,
 {
     Null,
@@ -27,10 +31,80 @@ pub enum WriteRequest<'a, T: FnMut(u32) -> Self>
     Str(&'a str),
     Bin(&'a [u8]),
     /// Stores the Marker, the number of object, and the slice with the array of objects
-    Array(u32, T),
+    Array(u32, A),
     /// Stores the Marker, the number of object tuples, and the slice with the object tuples in the map
-    // Map( MapReader<'a>),
-    Ext(i8, &'a [u8]),
+    Map(u32, M),
+    Ext(i8, u32, A),
+}
+
+impl<'a, A, M> WriteRequest<'a, A, M>
+where
+    A: FnMut(u32) -> Self,
+    M: FnMut(u32) -> (Self, Self),
+{
+   
+fn write_map_marker<W: RmpWrite>(writer: &mut W, count: u32) -> Result<(), Error>
+where
+    Error: From<<W as RmpWrite>::Error>
+{
+    match count{
+        0..=15 => write_marker(writer, Marker::FixMap(count as u8))?,
+        16..=0xffff => {
+            write_marker(writer, Marker::Map16)?;
+            let buf = count as u16;
+            let bytes = buf.to_be_bytes();
+            writer.write_bytes(&bytes[..])?;
+        }
+        _ =>  {
+            write_marker(writer, Marker::Map32)?;
+            let buf = count as u32;
+            let bytes = buf.to_be_bytes();
+            writer.write_bytes(&bytes[..])?;
+        }
+    };
+
+    Ok(())
+}
+
+
+    pub fn write_request<W: RmpWrite>(&mut self, writer: &mut W) -> Result<(), Error>
+    where
+        Error: From<<W as RmpWrite>::Error>,
+    {
+        match self {
+            WriteRequest::Null => 
+            write_marker(writer, Marker::Null)?,
+            WriteRequest::Bool(val) => match val{
+                true => write_marker(writer, Marker::True)?,
+                false => write_marker(writer, Marker::False)?,
+            },
+            WriteRequest::U8(_) => todo!(),
+            WriteRequest::U16(_) => todo!(),
+            WriteRequest::U32(_) => todo!(),
+            WriteRequest::U64(_) => todo!(),
+            WriteRequest::I8(_) => todo!(),
+            WriteRequest::I16(_) => todo!(),
+            WriteRequest::I32(_) => todo!(),
+            WriteRequest::I64(_) => todo!(),
+            WriteRequest::F32(_) => todo!(),
+            WriteRequest::F64(_) => todo!(),
+            WriteRequest::Str(_) => todo!(),
+            WriteRequest::Bin(_) => todo!(),
+            WriteRequest::Array(_, _) => todo!(),
+            WriteRequest::Map(count, func) => {
+                // write_marker(writer, Marker::FixMap(*count as u8))?;
+                Self::write_map_marker(writer, *count)?;
+                for index in 0..*count{
+                    let (key,val) =  &mut func(index);
+                    key.write_request(writer)?;
+                    val.write_request(writer)?;
+                }
+            },
+            WriteRequest::Ext(ext_type, count, func) => todo!(),
+        }
+
+        todo!()
+    }
 }
 
 // impl<'a> WriteRequest<'a> {}
@@ -41,17 +115,16 @@ pub enum WriteRequest<'a, T: FnMut(u32) -> Self>
 //     }
 // }
 
-pub fn write_request<'a, W: RmpWrite, T: FnMut(u32) -> WriteRequest<'a, T>>(
-    wr: &mut W,
-    data: WriteRequest<'a, T>,
-) {
-}
+// pub fn write_request<'a, W: RmpWrite, A: FnMut(u32) -> WriteRequest<'a,A,M>, M:FnMut(u32) -> WriteRequest<'a,A,M> >(
+//     wr: &mut W,
+// ) {
+// }
 
-fn write_map<W: RmpWrite, F: FnMut(&mut W, u32) -> Result<(), errors::Error>>(
+fn write_map<W: RmpWrite, F: FnMut(&mut W, u32) -> Result<(), Error>>(
     wr: &mut W,
     len: u32,
     mut func: F,
-) -> Result<(), errors::Error> {
+) -> Result<(), Error> {
     write_map_len(wr, len)?;
 
     for index in 0..len {
