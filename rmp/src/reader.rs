@@ -24,9 +24,11 @@ pub enum ReadResult<'a> {
     /// Stores the Marker, the number of object, and the slice with the array of objects
     Array(Marker, u32, &'a [u8]),
     /// Stores the Marker, the number of object tuples, and the slice with the object tuples in the map
-    Map(Marker, u32, &'a [u8]),
+    Map(Marker, MapReader<'a>),
     Ext(Marker, i8, &'a [u8]),
 }
+
+#[derive(Debug)]
 pub struct Reader<'a> {
     bytes: Bytes<'a>,
 }
@@ -188,16 +190,14 @@ impl<'a> Reader<'a> {
 
                             ReadResult::Map(
                                 marker,
-                                count as u32,
-                                &self
+                                MapReader::new(count as u32, &self
                                     .bytes
-                                    .read_exact_ref(reader.bytes.position() as usize)?,
+                                    .read_exact_ref(reader.bytes.position() as usize)?)                                                   
                             )
                         } else {
                             ReadResult::Map(
                                 marker,
-                                count as u32,
-                                &self.bytes.remaining_slice()[..0],
+                                MapReader::new( 0,  &self.bytes.remaining_slice()[..0])                                                
                             )
                         }
                     }
@@ -212,16 +212,14 @@ impl<'a> Reader<'a> {
 
                             ReadResult::Map(
                                 marker,
-                                count as u32,
-                                &self
+                                MapReader::new(count as u32, &self
                                     .bytes
-                                    .read_exact_ref(reader.bytes.position() as usize)?,
+                                    .read_exact_ref(reader.bytes.position() as usize)?)                                                   
                             )
                         } else {
                             ReadResult::Map(
                                 marker,
-                                count as u32,
-                                &self.bytes.remaining_slice()[..0],
+                                MapReader::new( 0,  &self.bytes.remaining_slice()[..0])                                                
                             )
                         }
                     }
@@ -233,19 +231,16 @@ impl<'a> Reader<'a> {
                                 let _ = reader.read()?;
                                 let _ = reader.read()?;
                             }
-
                             ReadResult::Map(
                                 marker,
-                                count as u32,
-                                &self
+                                MapReader::new(count as u32, &self
                                     .bytes
-                                    .read_exact_ref(reader.bytes.position() as usize)?,
+                                    .read_exact_ref(reader.bytes.position() as usize)?)                                                   
                             )
                         } else {
                             ReadResult::Map(
                                 marker,
-                                count as u32,
-                                &self.bytes.remaining_slice()[..0],
+                                MapReader::new( 0,  &self.bytes.remaining_slice()[..0])                                                
                             )
                         }
                     }
@@ -314,6 +309,20 @@ impl<'a> Iterator for Reader<'a> {
     }
 }
 
+#[cfg(not(feature = "std"))]
+impl From<Utf8Error> for errors::Error{
+    fn from(_value: Utf8Error) -> Self {
+        errors::Error::Utf8Error
+    }
+}
+
+#[cfg(not(feature = "std"))]
+impl From<(Utf8Error, &[u8])> for errors::Error{
+    fn from((error,_): (Utf8Error, &[u8])) -> Self {
+        error.into()
+    }
+}
+
 pub enum MapReadError {
     MapEmpty,
     ParseError,
@@ -325,9 +334,9 @@ impl From<decode::Error> for MapReadError {
     }
 }
 
+#[derive(Debug)]
 pub struct MapReader<'a> {
     reader: Reader<'a>,
-    marker: Marker,
     count: u32,
     index: u32,
 }
@@ -335,26 +344,27 @@ pub struct MapReader<'a> {
 #[derive(Debug)]
 pub struct InvalidMarker {}
 
+impl From<InvalidMarker> for errors::Error{
+    fn from(_value: InvalidMarker) -> Self {
+        errors::Error::InvalidMarker
+    }
+}
+
 impl<'a> MapReader<'a> {
-    pub fn new(marker: Marker, count: u32, buffer: &'a [u8]) -> Result<Self, InvalidMarker> {
-        if match marker {
-            Marker::FixMap(_) | Marker::Map16 | Marker::Map32 => true,
-            _ => false,
-        } {
-            Ok(MapReader {
+    pub fn new(count: u32, buffer: &'a [u8]) -> Self {
+      MapReader {
                 reader: Reader::new(buffer),
-                marker,
                 count,
                 index: 0,
-            })
-        } else {
-            Err(InvalidMarker {})
-        }
+            }
+    }
+
+    pub fn len(&self) -> usize{
+        self.count as usize
     }
 
     fn read_map(&mut self) -> Result<(ReadResult<'a>, ReadResult<'a>), MapReadError> {
         let key = self.reader.next().ok_or(MapReadError::MapEmpty)??;
-
         let val = self.reader.next().ok_or(MapReadError::ParseError)??;
 
         Ok((key, val))
@@ -362,20 +372,26 @@ impl<'a> MapReader<'a> {
 }
 
 impl<'a> Iterator for MapReader<'a> {
-    type Item = Result<(ReadResult<'a>, ReadResult<'a>), MapReadError>;
+    type Item = Result<(ReadResult<'a>, ReadResult<'a>), errors::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.count {
             let res = self.read_map();
-            if res.is_ok() {
-                self.index += 1;
-                Some(res)
-            } else {
-                self.index = self.count;
-                Some(Err(MapReadError::MapEmpty))
+            match res {
+                Ok((key,val)) => {
+                    self.index += 1;
+                    Some(Ok((key,val)))
+                },
+                Err(err) => {
+                    self.index = self.count;
+                    match err {
+                        MapReadError::MapEmpty => Some(Err(errors::Error::MapMissingElementsError)),
+                        MapReadError::ParseError => Some(Err(errors::Error::ValueReadError)),
+                    }
+                },
             }
         } else {
-            Some(Err(MapReadError::MapEmpty))
+            None
         }
     }
 }
