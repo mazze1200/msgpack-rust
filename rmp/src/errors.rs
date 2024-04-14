@@ -22,7 +22,8 @@ pub type Error = ::std::io::Error;
 #[cfg(not(feature = "std"))]
 // #[deprecated(note = "Doesn't work meaningfully on no_std")]
 // pub type Error = ::core::convert::Infallible;
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error{
     MarkerWriteError,
     DataWriteError,
